@@ -22,9 +22,9 @@ public class Transfer {
     private UUID id;
     private Instant createdAt;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String signature;
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String publicTransactionHash;
 
     @Column(nullable = false)

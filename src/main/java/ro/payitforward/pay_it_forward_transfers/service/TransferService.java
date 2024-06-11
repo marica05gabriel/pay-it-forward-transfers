@@ -15,6 +15,7 @@ import ro.payitforward.pay_it_forward_transfers.repository.TransferRepository;
 
 import java.security.SignatureException;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,6 +32,10 @@ public class TransferService {
 
     public Page<Transfer> findByToUserEqualsUserId(String userId, int page, int size) {
         return transferRepository.findByToUserEquals(userId, PageRequest.of(page, size));
+    }
+
+    public Collection<Transfer> findByUser(String userId) {
+        return transferRepository.findByFromUserEqualsOrToUserEquals(userId, userId);
     }
 
     public Transfer save(Transfer transfer) {
@@ -94,6 +99,7 @@ public class TransferService {
 
         transfer.setStatus(TransferStatusEnum.COMPLETED.name());
         transfer.setSignature(data.getSignature());
+        transfer.setPublicTransactionHash(data.getPublicTransactionHash());
 
         // TODO call book service to change the owner
         final Transfer updated = transferRepository.save(transfer);
@@ -112,4 +118,6 @@ public class TransferService {
         final String publicIdUsedToSign = SignatureService.getAddressUsedToSignHashedMessage(signature, transfer.getTargetPublicId());
 //        assert transfer.getToPublicId().equals(publicIdUsedToSign);
     }
+
+
 }

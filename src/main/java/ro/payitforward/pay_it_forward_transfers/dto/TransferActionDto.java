@@ -6,8 +6,8 @@ import lombok.Data;
 @Data
 @Builder
 public class TransferActionDto {
-    private String signature;
     private String candidateId;
     private String candidatePublicId;
-
+    private String publicTransactionHash;
+    private String signature;
 }

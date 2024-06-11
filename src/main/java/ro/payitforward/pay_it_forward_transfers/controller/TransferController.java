@@ -1,5 +1,6 @@
 package ro.payitforward.pay_it_forward_transfers.controller;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
@@ -27,6 +28,7 @@ import static org.springframework.data.web.config.EnableSpringDataWebSupport.Pag
 import static ro.payitforward.pay_it_forward_transfers.dto.BaseResponse.BaseResponseCode.*;
 import static ro.payitforward.pay_it_forward_transfers.dto.BaseResponse.BaseResponseStatus.SUCCESS;
 
+@Slf4j
 @RestController
 @RequestMapping(value = "/api/transfer")
 @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)
@@ -111,6 +113,45 @@ public class TransferController {
     }
 
     /***
+     * Get transfers where user is involved either as a transferor or transferee.
+     * @param userId User id
+     * @return {status, code, message}
+     */
+    @GetMapping(value = "/byUser/{userId}")
+    public ResponseEntity<Collection<TransferDto>> getTransfersByTransferParty(@PathVariable String userId) {
+//        assert isNotBlank(userId);
+//        assert isNotBlank(transferParty);
+
+        final Collection<Transfer> transfers = transferService.findByUser(userId);
+        final Collection<TransferDto> result = transfers.stream().map(transferToDtoConverter::convert).toList();
+        return ResponseEntity.ok().body(result);
+    }
+
+
+    /***
+     * Get transfers by id
+     * @param uuid Transfer id
+     * @param userId User id
+     * @return TransferDto
+     */
+    @GetMapping(value = "/byId/{uuid}/{userId}")
+    public ResponseEntity<TransferDto> getTransferById(@PathVariable String uuid,
+                                                       @PathVariable String userId) {
+//        assert isNotBlank(userId);
+//        assert isNotBlank(uuid);
+
+        final Transfer transfer = transferService.findOrThrow(UUID.fromString(uuid));
+        if (!transfer.getToUser().equalsIgnoreCase(userId)
+                && !transfer.getFromUser().equalsIgnoreCase(userId)) {
+            log.error("User id: {} not involved in transfer: {}!", userId, uuid);
+            throw new IllegalArgumentException("User id: " + userId + " not involved in transfer: " + uuid + "!");
+        }
+
+        final TransferDto result = transferToDtoConverter.convert(transfer);
+        return ResponseEntity.ok().body(result);
+    }
+
+    /***
      * Creates a Transfer Request
      * @param request {from, to, target, fromPublicId, toPublicId, targetPublicId}
      * @return {status, code, message}
@@ -147,7 +188,7 @@ public class TransferController {
                                                                @RequestBody TransferRequestConsentDto request) {
 
         final TransferRequestConsentEnum consentEnum = TransferRequestConsentEnum.getOrThrow(consent);
-        final Transfer transfer = transferRequestService.consent(consentEnum, uuid, request);
+        final UUID result = transferRequestService.consent(consentEnum, uuid, request);
 
         return switch (consentEnum) {
             case CANCEL -> ResponseEntity.status(HttpStatus.OK)
@@ -160,7 +201,7 @@ public class TransferController {
                     .body(BaseResponse.builder()
                             .status(SUCCESS.name())
                             .code(TRANSFER_PENDING.name())
-                            .message("Transfer request accepted. The new transfer is pending until completion. Transfer id: " + transfer.getId())
+                            .message("Transfer request accepted. The new transfer is pending until completion. Transfer id: " + result)
                             .build());
             case REFUSE -> ResponseEntity.status(HttpStatus.OK)
                     .body(BaseResponse.builder()
@@ -254,7 +295,7 @@ public class TransferController {
         if (isBlank(request.getTargetPublicId())) {
             missingFields.add("targetPublicId");
         }
-        if (CollectionUtils.isEmpty(missingFields)) {
+        if (!CollectionUtils.isEmpty(missingFields)) {
             throw new IllegalArgumentException(String.join(", ", missingFields));
         }
     }
@@ -272,7 +313,7 @@ public class TransferController {
             missingFields.add("signature");
         }
 
-        if (CollectionUtils.isEmpty(missingFields)) {
+        if (!CollectionUtils.isEmpty(missingFields)) {
             throw new IllegalArgumentException(String.join(", ", missingFields));
         }
     }

@@ -23,6 +23,7 @@ public class BaseResponse {
         TRANSFER_PENDING,
         TRANSFER_REQUEST_CANCELED,
         SIGNATURE_VALID,
+        SIGNATURE_NOT_VALID,
         TRANSFER_CANCELED,
         TRANSFER_COMPLETED
     }

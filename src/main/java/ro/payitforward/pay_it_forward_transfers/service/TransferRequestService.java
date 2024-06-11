@@ -53,7 +53,7 @@ public class TransferRequestService {
         return result;
     }
 
-    public Transfer consent(TransferRequestConsentEnum consent, String uuid, TransferRequestConsentDto consentData) {
+    public UUID consent(TransferRequestConsentEnum consent, String uuid, TransferRequestConsentDto consentData) {
         final TransferRequest transferRequest = findOrThrow(UUID.fromString(uuid));
 
         if (TransferRequestConsentEnum.CANCEL.equals(consent)
@@ -69,25 +69,34 @@ public class TransferRequestService {
 
         transferRequest.setStatus(consent.name());
         transferRequest.setConsentDate(Instant.now());
-
-        final Transfer newTransfer = transferService.buildNew(transferRequest);
-
         transferRequestRepository.save(transferRequest);
-        final Transfer result = transferService.save(newTransfer);
 
-        log.info("Transfer created with uuid: {} and status: {}.", result.getId(), result.getStatus());
-        return result;
+        return switch (consent) {
+            case CANCEL -> {
+                log.info("Transfer request with uuid: {} was canceled.", transferRequest.getId());
+                yield transferRequest.getId();
+            }
+            case REFUSE -> {
+                log.info("Transfer request with uuid: {} was refused.", transferRequest.getId());
+                yield transferRequest.getId();
+            } case ACCEPT -> {
+                final Transfer newTransfer = transferService.buildNew(transferRequest);
+                final Transfer result = transferService.save(newTransfer);
+                log.info("Transfer created with uuid: {} and status: {}.", result.getId(), result.getStatus());
+                yield result.getId();
+            }
+        };
     }
 
 
     private boolean isCandidateTheInitiator(TransferRequest transferRequest, TransferRequestConsentDto consentData) {
-        return transferRequest.getToUser().equals(consentData.getCandidateId())
-                && transferRequest.getToPublicId().equals(consentData.getCandidatePublicId());
+        return transferRequest.getToUser().equalsIgnoreCase(consentData.getCandidateId())
+                && transferRequest.getToPublicId().equalsIgnoreCase(consentData.getCandidatePublicId());
     }
 
     private boolean isCandidateTheOwner(TransferRequest transferRequest, TransferRequestConsentDto consentData) {
-        return transferRequest.getFromUser().equals(consentData.getCandidateId())
-                && transferRequest.getFromPublicId().equals(consentData.getCandidatePublicId());
+        return transferRequest.getFromUser().equalsIgnoreCase(consentData.getCandidateId())
+                && transferRequest.getFromPublicId().equalsIgnoreCase(consentData.getCandidatePublicId());
     }
 
     private TransferRequest buildNew(TransferRequestCreationDto data) {
